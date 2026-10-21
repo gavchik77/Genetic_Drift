@@ -6,7 +6,7 @@ const PALETTE={YY:'#e8c73d',BB:'#3674c4',RR:'#d95551',YB:'#58a878',BY:'#58a878',
 const LINE=['#c3a018','#3674c4','#d95551'];
 const LIMIT=2000;
 let pop=[[],[],[]], generation=0, histories=[[],[],[]], timer=null, trials=[];
-let rng=Math.random;
+let rng=Math.random;let foundingEvent=0, lastRecordedEvent=-1;
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const num=(id,lo=1,hi=1000)=>{const val=Number($(id).value);return Number.isFinite(val)?clamp(Math.trunc(val),lo,hi):lo};
 const randomInt=n=>Math.floor(rng()*n);
@@ -22,7 +22,7 @@ function record(){for(let i=0;i<3;i++)histories[i].push({g:generation,n:pop[i].l
 function setStatus(s){$('status').textContent=s}
 function stop(){if(timer!==null){clearInterval(timer);timer=null}$('go').textContent='▶ Start'}
 function setup(){stop();generation=0;pop=[initialPop(num('mainK')),[],[]];histories=[[],[],[]];record();draw();setStatus('Reset complete: mainland founded; islands are empty.')}
-function colonize(destination,source,countId){const n=num(countId);if(pop[source].length<n){setStatus('Not enough individuals in source population to found Island '+destination+'.');return}pop[destination]=sampleWithoutReplacement(pop[source],n);histories[destination]=[{g:generation,n:pop[destination].length,p:countAlleles(pop[destination])}];draw();setStatus('Island '+destination+' founded with '+n+' individuals. The founders are copied; source population is unchanged.')}
+function colonize(destination,source,countId){const n=num(countId);if(pop[source].length<n){setStatus('Not enough individuals in source population to found Island '+destination+'.');return}pop[destination]=sampleWithoutReplacement(pop[source],n);if(destination===1)foundingEvent++;histories[destination]=[{g:generation,n:pop[destination].length,p:countAlleles(pop[destination])}];draw();setStatus('Island '+destination+' founded with '+n+' individuals. The founders are copied; source population is unchanged.')}
 function bottleneck(){const n=num('bottle');if(!pop[0].length){setStatus('Mainland is empty.');return}if(n>pop[0].length){setStatus('Bottleneck size exceeds mainland population size.');return}pop[0]=sampleWithoutReplacement(pop[0],n);record();draw();setStatus('Bottleneck: '+n+' mainland individuals survived by chance.')}
 function clearIsland(i){pop[i]=[];histories[i]=[];draw();setStatus('Island '+i+' cleared.')}
 function drawDots(i){const c=$('world'+i),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);let a=pop[i],n=a.length;if(!n){ctx.fillStyle='#78909b';ctx.font='19px system-ui';ctx.textAlign='center';ctx.fillText('Uninhabited',c.width/2,c.height/2);return}const cols=Math.ceil(Math.sqrt(n*c.width/c.height)),rows=Math.ceil(n/cols);const dx=c.width/(cols+1),dy=c.height/(rows+1),r=clamp(Math.min(dx,dy)*.34,2,8);for(let j=0;j<n;j++){const x=(j%cols+1)*dx,y=(Math.floor(j/cols)+1)*dy;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=PALETTE[a[j]]||'#888';ctx.fill()}}
@@ -33,6 +33,47 @@ function exportCSV(filename,rows){let csv=rows.map(row=>row.map(value=>{let s=St
 function safeStudent(){return ($('studentId').value.trim()||'student').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,30)}
 function hashSeed(s){let x=2166136261>>>0;for(let i=0;i<s.length;i++){x=Math.imul(x^s.charCodeAt(i),16777619)}return x>>>0}
 function seededRandom(seed){let state=seed>>>0;return ()=>{state=(state+0x6D2B79F5)>>>0;let t=state;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}}
-function runTrials(){stop();const reps=num('repetitions',1,10000),warmup=num('warmup',0,1000),found=num('found1',1,1000),K=num('mainK');if(found>K){setStatus('Founder number must not exceed mainland population size.');return}const prev=rng,seedText=$('seed').value.trim();if(seedText)rng=seededRandom(hashSeed(seedText));trials=[];for(let i=1;i<=reps;i++){let mainland=initialPop(K);for(let g=0;g<warmup;g++)mainland=reproduce(mainland,K);let island=sampleWithoutReplacement(mainland,found);const m=countAlleles(mainland),p=countAlleles(island),rM=richness(mainland),rI=richness(island),D=p.reduce((acc,v,j)=>acc+Math.abs(v-m[j]),0)/2;trials.push({run:i,m,p,rM,rI,D,loss:rI<rM})}rng=prev;const losses=trials.filter(x=>x.loss).length,meanD=trials.reduce((a,x)=>a+x.D,0)/trials.length,sorted=trials.map(t=>t.D).sort((a,b)=>a-b);$('trialSummary').innerHTML='<strong>'+reps+' independent founding events</strong><br>Founders per island: '+found+' · Mainland K: '+K+' · Warm-up generations: '+warmup+'<br>Runs losing ≥1 mainland allele: <strong>'+losses+' / '+reps+' ('+(100*losses/reps).toFixed(1)+'%)</strong><br>Mean absolute allele-frequency difference (D): <strong>'+meanD.toFixed(3)+'</strong><br>Median D: '+((sorted[Math.floor((reps-1)/2)]+sorted[Math.floor(reps/2)])/2).toFixed(3)+'.';$('trialRows').innerHTML=trials.map(t=>'<tr><td>'+t.run+'</td>'+t.m.concat(t.p).map(v=>'<td>'+v.toFixed(3)+'</td>').join('')+'<td>'+t.rM+' → '+t.rI+'</td><td>'+t.D.toFixed(3)+'</td></tr>').join('');$('downloadTrials').disabled=false;setStatus('Completed '+reps+' independent experiments. Download the CSV to keep the results.')}
-$('setup').addEventListener('click',setup);$('step').addEventListener('click',()=>{stop();tick()});$('go').addEventListener('click',()=>{if(timer!==null){stop();return}timer=setInterval(tick,Number($('speed').value));$('go').textContent='⏸ Pause';setStatus('Simulation running.')});$('speed').addEventListener('change',()=>{if(timer!==null){stop();timer=setInterval(tick,Number($('speed').value));$('go').textContent='⏸ Pause'}});$('colonize1').addEventListener('click',()=>colonize(1,0,'found1'));$('colonize2').addEventListener('click',()=>colonize(2,1,'found2'));$('bottleneck').addEventListener('click',bottleneck);$('clear1').addEventListener('click',()=>clearIsland(1));$('clear2').addEventListener('click',()=>clearIsland(2));$('graphPop').addEventListener('change',drawChart);$('runTrials').addEventListener('click',runTrials);$('downloadTrials').addEventListener('click',()=>{if(!trials.length)return;exportCSV('founder_effect_'+safeStudent()+'_'+trials.length+'_runs.csv',[['Student ID','Run','Mainland Y','Mainland B','Mainland R','Island Y','Island B','Island R','Mainland richness','Island richness','Allele lost','D'],...trials.map(t=>[safeStudent(),t.run,...t.m.map(x=>x.toFixed(6)),...t.p.map(x=>x.toFixed(6)),t.rM,t.rI,t.loss?'Yes':'No',t.D.toFixed(6)])])});$('exportHistory').addEventListener('click',()=>{const rows=[['Generation','Population','Individuals','Y','B','R']];histories.forEach((h,i)=>h.forEach(t=>rows.push([t.g,['Mainland','Island 1','Island 2'][i],t.n,...t.p.map(x=>x.toFixed(6))])));exportCSV('allele_history_'+safeStudent()+'.csv',rows)});
-setup();
+const recordedRuns=[];let classTrials=[];
+function showRecorded(){
+ const tbody=$('trialRows');
+ // Build real table cells and visibly show the same data used in the CSV.
+ const fragment=document.createDocumentFragment();
+ for(const t of recordedRuns){
+   const tr=document.createElement('tr');
+   for(const value of [t.run,...t.m,...t.p]){
+     const td=document.createElement('td');
+     td.textContent=typeof value==='number'&& !Number.isInteger(value) ? value.toFixed(3) : String(value);
+     tr.appendChild(td);
+   }
+   fragment.appendChild(tr);
+ }
+ tbody.replaceChildren(fragment);
+ $('downloadTrials').disabled=!recordedRuns.length;
+ $('trialMessage').textContent=recordedRuns.length+' of 10 results recorded. '+(recordedRuns.length===10?'All ten runs recorded: download your data.':'Reset the simulation for the next independent run.');
+ $('recordTrial').disabled=recordedRuns.length>=10;
+ $('recordCount').textContent=recordedRuns.length+' / 10';
+ try{localStorage.setItem('genetic-drift-student-records-v13',JSON.stringify(recordedRuns));}catch(e){}
+}
+function restoreRecorded(){
+ try{
+   const saved=JSON.parse(localStorage.getItem('genetic-drift-student-records-v13')||'[]');
+   if(Array.isArray(saved)) for(const row of saved.slice(0,10)){
+     if(Array.isArray(row.m)&&row.m.length===3&&Array.isArray(row.p)&&row.p.length===3&&[...row.m,...row.p].every(v=>typeof v==='number'&&Number.isFinite(v)))recordedRuns.push({run:recordedRuns.length+1,m:row.m,p:row.p});
+   }
+ }catch(e){}
+ showRecorded();
+}
+
+function recordTrial(){
+ if(recordedRuns.length>=10)return;
+ if(foundingEvent===lastRecordedEvent){$('trialMessage').textContent='This founder event has already been recorded. Reset and colonise again for a new independent run.';return}
+ if(!pop[0].length||!pop[1].length){$('trialMessage').textContent='First colonise Island 1 from the mainland; both populations must contain individuals.';return}
+ if(pop[1].length!==5){$('trialMessage').textContent='This student practical requires exactly 5 Island 1 founders. Set Founders → Island 1 to 5, reset, then colonise.';return}
+ if(histories[1].length!==1||histories[1][0].g!==generation){$('trialMessage').textContent='Record immediately after colonisation, before running another generation. Please reset and repeat.';return}
+ const m=countAlleles(pop[0]),p=countAlleles(pop[1]); recordedRuns.push({run:recordedRuns.length+1,m,p});lastRecordedEvent=foundingEvent;showRecorded();
+}
+function rawRows(runs){return [['Student ID','Run','Mainland Y','Mainland B','Mainland R','Island Y','Island B','Island R'],...runs.map(t=>[safeStudent(),t.run,...t.m.map(x=>x.toFixed(6)),...t.p.map(x=>x.toFixed(6))])]}
+function runClass(){stop();const previous=rng,seedText=$('seed').value.trim(),warmup=num('warmup',0,1000),K=num('mainK');if(K<5){setStatus('Mainland carrying capacity must be at least 5.');return}try{if(seedText)rng=seededRandom(hashSeed(seedText));classTrials=[];for(let i=1;i<=42;i++){let mainland=initialPop(K);for(let g=0;g<warmup;g++)mainland=reproduce(mainland,K);const island=sampleWithoutReplacement(mainland,5);classTrials.push({run:i,m:countAlleles(mainland),p:countAlleles(island)})}}finally{rng=previous}
+ $('classRows').innerHTML=classTrials.map(t=>'<tr><td>'+t.run+'</td>'+t.m.concat(t.p).map(v=>'<td>'+v.toFixed(3)+'</td>').join('')+'</tr>').join('');$('downloadClass').disabled=false;setStatus('Generated 42 independent founding events (raw frequencies only).')}
+$('setup').addEventListener('click',setup);$('step').addEventListener('click',()=>{stop();tick()});$('go').addEventListener('click',()=>{if(timer!==null){stop();return}timer=setInterval(tick,Number($('speed').value));$('go').textContent='⏸ Pause';setStatus('Simulation running.')});$('speed').addEventListener('change',()=>{if(timer!==null){stop();timer=setInterval(tick,Number($('speed').value));$('go').textContent='⏸ Pause'}});$('colonize1').addEventListener('click',()=>colonize(1,0,'found1'));$('colonize2').addEventListener('click',()=>colonize(2,1,'found2'));$('bottleneck').addEventListener('click',bottleneck);$('clear1').addEventListener('click',()=>clearIsland(1));$('clear2').addEventListener('click',()=>clearIsland(2));$('graphPop').addEventListener('change',drawChart);$('recordTrial').addEventListener('click',recordTrial);$('undoTrial').addEventListener('click',()=>{recordedRuns.pop();showRecorded()});$('clearTrials').addEventListener('click',()=>{if(recordedRuns.length&&!confirm('Clear all recorded student results?'))return;recordedRuns.length=0;showRecorded()});$('downloadTrials').addEventListener('click',()=>{if(recordedRuns.length)exportCSV('founder_effect_'+safeStudent()+'_raw.csv',rawRows(recordedRuns))});$('runClass').addEventListener('click',runClass);$('downloadClass').addEventListener('click',()=>{if(classTrials.length)exportCSV('founder_effect_42_demo_raw.csv',rawRows(classTrials))});$('exportHistory').addEventListener('click',()=>{const rows=[['Generation','Population','Individuals','Y','B','R']];histories.forEach((h,i)=>h.forEach(t=>rows.push([t.g,['Mainland','Island 1','Island 2'][i],t.n,...t.p.map(x=>x.toFixed(6))])));exportCSV('allele_history_'+safeStudent()+'.csv',rows)});
+setup();restoreRecorded();

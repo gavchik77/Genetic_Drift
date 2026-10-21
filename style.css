@@ -13,3 +13,19 @@
 .genetics-notes p{line-height:1.6;margin:0}
 @media(max-width:850px){.genotype-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.genetics-notes{grid-template-columns:1fr}}
 @media(max-width:480px){.genotype-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* v1.2: teaching concepts above genetics; settings immediately above populations */
+.concept-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.concept-grid article{padding:16px;border:1px solid #d9e6e9;background:#f5fafb;border-radius:12px}
+.concept-grid p{margin:0;line-height:1.6;font-size:14px}
+.demonstration{margin-top:22px;border-top:1px solid #dce8ea;padding-top:16px}
+.demonstration summary{cursor:pointer;color:#125b70;font-weight:700}
+.demonstration>p{line-height:1.6}
+@media(max-width:850px){.concept-grid{grid-template-columns:1fr}}
+
+/* v1.3: improve visibility of recorded founder events */
+#trialRows tr:nth-child(odd){background:#f3f9fb}
+#trialRows tr:nth-child(even){background:#fff}
+#trialRows td{font-variant-numeric:tabular-nums;color:#132b35;font-weight:600}
+#trialRows td:nth-child(n+5){background:rgba(17,117,138,.065)}
+.run-count{font-size:15px;margin-left:10px;padding:5px 10px;border-radius:20px;background:#e4f3ef;color:#146252;white-space:nowrap}
