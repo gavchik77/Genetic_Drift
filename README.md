@@ -51,3 +51,6 @@ The ten-run practical is independent of the free-play controls. Each press of **
 
 ## v1.8 classroom illustrations
 Added three self-contained SVG diagrams (genetic drift, population bottleneck and founder effect) above the respective explanations. All five v1.7 application files remain otherwise unchanged except for image references and illustration CSS. The `app.js` file is **identical** to working v1.7. Upload the eight files in this ZIP to the GitHub Pages repository root. The diagrams are schematic: coloured dots represent allele copies, not necessarily individual diploid organisms.
+
+## Diagram note (v1.9)
+The population bottleneck illustration uses **five illustrative colour variants before** the bottleneck and two after, to make genetic diversity loss more visually apparent. It is a conceptual diagram; the interactive simulation itself continues to model three alleles (Y, B, R), and its code is unchanged.
